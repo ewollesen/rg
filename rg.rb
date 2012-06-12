@@ -7,6 +7,9 @@ require "open-uri"
 require "colorize"
 
 
+MS_PER_S = 1000
+
+
 def check_server(server_record)
   server_name, base_url = server_record
   url = URI.parse(base_url)
@@ -20,7 +23,7 @@ def check_server(server_record)
 end
 
 def process_project(project)
-  timestamp = Time.at(project["lastBuild"]["timeStamp"] / 1000)
+  timestamp = Time.at(project["lastBuild"]["timeStamp"] / MS_PER_S)
   passing = project["lastBuild"]["result"] == "SUCCESS"
   [project["title"], timestamp.ctime, passing]
 end
