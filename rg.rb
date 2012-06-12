@@ -35,12 +35,18 @@ def render_report(passing, failing)
   end
 end
 
+def servers
+  path = File.expand_path("~/.rg.yaml")
+  servers = YAML.load(open(path))["servers"]
+rescue Errno::ENOENT => e
+  $stderr.puts "Could not find server file: #{path}"
+  exit 1
+rescue StandardError => e
+  $stderr.puts "Error: #{e.class} #{e}"
+  exit 1
+end
+
 if $0 == __FILE__
-  servers = {
-    "Sprint" => "http://ci-sprint.lmpcloud.com:8080/",
-    "Production" => "http://ci-production.lmpcloud.com:8080/",
-  }
-  servers = YAML.load(open(File.expand_path("~/.rg.yaml")))
   passing, failing = servers.inject([]) do |l, server|
     l += check_server(server)
   end.partition {|r| r[3]}
