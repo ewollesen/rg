@@ -8,7 +8,12 @@ require "colorize"
 
 
 MS_PER_S = 1000
-
+BUILD_STATUSES = [
+                  "SUCCESS",
+                  "FAILURE",
+                  "ABORTED",
+                  nil,
+                 ]
 
 def check_server(server_record)
   server_name, base_url = server_record
@@ -24,17 +29,24 @@ end
 
 def process_project(project)
   timestamp = Time.at(project["lastBuild"]["timeStamp"] / MS_PER_S)
-  passing = project["lastBuild"]["result"] == "SUCCESS"
-  [project["title"], timestamp.ctime, passing]
+  [project["title"], timestamp.ctime, project["lastBuild"]["result"]]
 end
 
-def render_report(passing, failing)
-  puts "#{passing.size}".colorize(:green) + " builds passing"
-  unless failing.empty?
-    puts "#{failing.size}".colorize(:red) + " builds failing"
+def render_report(statuses)
+  puts "#{statuses["SUCCESS"].size}".colorize(:green) + " builds passing"
+  failures = statuses.fetch("FAILURE", [])
+  unless failures.empty?
+    puts "#{failures.size}".colorize(:red) + " builds failing"
   end
-  failing.sort_by {|x| x.map(&:to_s).map(&:downcase)}.each do |(server, title, date, _)|
+  failures.sort_by {|x| x.map(&:to_s).map(&:downcase)}.each do |(server, title, date, _)|
     puts "%-11s %-40s\t%s" % ["#{server}:", title.colorize(:red), date]
+  end
+  aborted = statuses.fetch("ABORTED", [])
+  unless aborted.empty?
+    puts "#{statuses["ABORTED"].size}".colorize(:default) + " builds aborted"
+  end
+  aborted.sort_by {|x| x.map(&:to_s).map(&:downcase)}.each do |(server, title, date, _)|
+    puts "%-11s %-40s\t%s" % ["#{server}:", title.colorize(:default), date]
   end
 end
 
@@ -50,9 +62,12 @@ rescue StandardError => e
 end
 
 if $0 == __FILE__
-  passing, failing = servers.inject([]) do |l, server|
+  statuses = servers.inject([]) do |l, server|
     l += check_server(server)
-  end.partition {|r| r[3]}
+  end
+  statuses = statuses.inject({}) do |s, r|
+    s.update(r[3] => (s.fetch(r[3], []) << r))
+  end
 
-  render_report(passing, failing)
+  render_report(statuses)
 end
